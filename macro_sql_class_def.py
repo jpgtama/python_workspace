@@ -11,31 +11,87 @@ class Macro:
 	# re
 	p = re.compile('([ \\d]+)\\,([ \\d]+)\\,')
 	
-	# hold all parent macro
-	allowedPid = (1, 2 ,5 ,241 ,333 ,382 ,386)
+	# second level parent
+	allowedPid = (2 ,5 ,241 ,333 ,382 ,386)
 	pidList = []
 	stmtList = []
 	
 	
+	# root of macro tree
+	rootMacro = None;
+	
+	
+	def __repr__(self):
+		return "%s -> %s"%(self.id, self.childMacroList)
+		
 	
 	def __init__(self, id, stmt):
 		self.id = id
 		self.stmt = stmt
-		childs = []
+		self.childMacroList = []
+		
+	def addChild(self, childMacro):
+		self.childMacroList.append(childMacro)
+		
+	def findById(self, id):
+		# find in child first, actually this does no matters
+		for c in self.childMacroList:
+			node = c.findById(id)
+			if node is not None:
+				return node
+	
+		# check self
+		if(self.id == id):
+			return self
+		
+	def getStmtList(self):
+		result = [];
+		
+		# add my stmt
+		result.append(self.stmt)
+		
+		# append child stmt
+		for c in self.childMacroList:
+			result.extend(c.getStmtList())
+		
+		return result
+	
+	@classmethod
+	def topStmt(cls, *ids):
+		result = []
+		if len(ids) > 0:
+			for id in ids:
+				node = cls.rootMacro.findById(id)
+				result.append(node)
+		else:
+			result.append(cls.rootMacro)
+			
+		return result
+		
 	
 	@classmethod
 	def parse(cls):
+		# create root macro
+		cls.rootMacro = Macro(1, None);
+		
 		# C:\workspace\python_workspace\macro_sql.txt
 		dataFile = os.path.join(cls.dataFolder, "macro_sql.txt")
 		with io.open(dataFile, "r", encoding="utf8") as file:
 			for line in file:
 				cls.addStmt(line)
+				
 	
 	@classmethod
-	def save(cls):
+	def save(cls, macroList):
+		# collect stmt list
+		stmtList = []
+		for m in macroList:
+			stmtList.extend(m.getStmtList())
+		
+	
 		resultFile = os.path.join(cls.dataFolder, "result.txt")
 		with io.open(resultFile, "w", encoding="utf8") as file:
-			file.writelines(cls.stmtList)
+			file.writelines(stmtList)
 			
 		print "Done"
 	
@@ -57,22 +113,18 @@ class Macro:
 		id = ids[0]
 		pid = ids[1]
 	
-		if pid in cls.pidList:
-			# add pid & stmt
-			cls.pidList.append(id)
-			cls.stmtList.append(stmt)
-			#print ids, "in pidList", cls.pidList
+		childMacro = Macro(id, stmt)
+	
+		# find parent 
+		parent = cls.rootMacro.findById(pid)
+		
+		if parent is not None:
+			parent.addChild(childMacro)
 		else:
-			if pid in cls.allowedPid:
-				# add pid & stmt
-				cls.pidList.append(pid)
-				cls.pidList.append(id)
-				
-				cls.stmtList.append(stmt)
-				
-				#print ids, "not in pidlist, but in allowedPid", cls.allowedPid, "appended", cls.pidList
-			#else:
-				#print ids, "do nothing", cls.allowedPid, cls.pidList
+			print "pid Not found:", pid
+	
+	
+
 	
 	
 	
